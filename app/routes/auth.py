@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -8,6 +8,7 @@ from app.schemas import TokenModel, UserCreate, UserResponse
 from app.services.auth import auth_service
 
 
+security = HTTPBearer()
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
@@ -54,5 +55,35 @@ async def login(
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
+
+
+@router.post("/refresh_token", response_model=TokenModel)
+async def refresh_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    token = credentials.credentials
+
+    email = await auth_service.decode_refresh_token(token)
+
+    user = get_user_by_email(email, db)
+
+    if user is None or user.refresh_token != token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token = await auth_service.create_access_token(user.email)
+    new_refresh_token = await auth_service.create_refresh_token(user.email)
+
+    update_token(user, new_refresh_token, db)
+
+    return {
+        "access_token": access_token,
+        "refresh_token": new_refresh_token,
         "token_type": "bearer",
     }
