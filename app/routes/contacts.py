@@ -1,9 +1,12 @@
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app import crud
 from app.database import get_db
+from app.models import User
 from app.schemas import ContactCreate, ContactResponse, ContactUpdate
+from app.services.auth import auth_service
 
 router = APIRouter(
     prefix="/contacts",
@@ -19,8 +22,9 @@ router = APIRouter(
 def create_contact(
     contact: ContactCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(auth_service.get_current_user),
 ):
-    return crud.create_contact(db, contact)
+    return crud.create_contact(db, contact, current_user.id)
 
 
 @router.get(
@@ -30,8 +34,9 @@ def create_contact(
 def search_contacts(
     query: str = Query(..., min_length=1),
     db: Session = Depends(get_db),
+    current_user: User = Depends(auth_service.get_current_user),
 ):
-    return crud.search_contacts(db, query)
+    return crud.search_contacts(db, query, current_user.id)
 
 
 @router.get(
@@ -40,8 +45,9 @@ def search_contacts(
 )
 def get_upcoming_birthdays(
     db: Session = Depends(get_db),
+    current_user: User = Depends(auth_service.get_current_user),
 ):
-    return crud.get_upcoming_birthdays(db)
+    return crud.get_upcoming_birthdays(db, current_user.id)
 
 
 @router.get(
@@ -50,8 +56,9 @@ def get_upcoming_birthdays(
 )
 def get_contacts(
     db: Session = Depends(get_db),
+    current_user: User = Depends(auth_service.get_current_user),
 ):
-    return crud.get_contacts(db)
+    return crud.get_contacts(db, current_user.id)
 
 
 @router.get(
@@ -61,8 +68,9 @@ def get_contacts(
 def get_contact(
     contact_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(auth_service.get_current_user),
 ):
-    contact = crud.get_contact(db, contact_id)
+    contact = crud.get_contact(db, contact_id, current_user.id)
 
     if contact is None:
         raise HTTPException(
@@ -81,8 +89,9 @@ def update_contact(
     contact_id: int,
     contact: ContactUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(auth_service.get_current_user),
 ):
-    db_contact = crud.get_contact(db, contact_id)
+    db_contact = crud.get_contact(db, contact_id, current_user.id)
 
     if db_contact is None:
         raise HTTPException(
@@ -100,8 +109,9 @@ def update_contact(
 def delete_contact(
     contact_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(auth_service.get_current_user),
 ):
-    db_contact = crud.get_contact(db, contact_id)
+    db_contact = crud.get_contact(db, contact_id, current_user.id)
 
     if db_contact is None:
         raise HTTPException(

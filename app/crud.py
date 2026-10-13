@@ -1,3 +1,4 @@
+
 import calendar
 from datetime import date, timedelta
 
@@ -7,20 +8,30 @@ from app import models
 from app.schemas import ContactCreate, ContactUpdate
 
 
-def get_contacts(db: Session):
-    return db.query(models.Contact).all()
-
-
-def get_contact(db: Session, contact_id: int):
+def get_contacts(db: Session, user_id: int):
     return (
         db.query(models.Contact)
-        .filter(models.Contact.id == contact_id)
+        .filter(models.Contact.user_id == user_id)
+        .all()
+    )
+
+
+def get_contact(db: Session, contact_id: int, user_id: int):
+    return (
+        db.query(models.Contact)
+        .filter(
+            models.Contact.id == contact_id,
+            models.Contact.user_id == user_id,
+        )
         .first()
     )
 
 
-def create_contact(db: Session, contact: ContactCreate):
-    db_contact = models.Contact(**contact.model_dump())
+def create_contact(db: Session, contact: ContactCreate, user_id: int):
+    db_contact = models.Contact(
+        **contact.model_dump(),
+        user_id=user_id,
+    )
 
     db.add(db_contact)
     db.commit()
@@ -29,7 +40,11 @@ def create_contact(db: Session, contact: ContactCreate):
     return db_contact
 
 
-def update_contact(db: Session, db_contact: models.Contact, contact: ContactUpdate):
+def update_contact(
+    db: Session,
+    db_contact: models.Contact,
+    contact: ContactUpdate,
+):
     for field, value in contact.model_dump().items():
         setattr(db_contact, field, value)
 
@@ -44,15 +59,18 @@ def delete_contact(db: Session, db_contact: models.Contact):
     db.commit()
 
 
-def search_contacts(db: Session, query: str):
+def search_contacts(db: Session, query: str, user_id: int):
     search = f"%{query}%"
 
     return (
         db.query(models.Contact)
         .filter(
-            (models.Contact.first_name.ilike(search))
-            | (models.Contact.last_name.ilike(search))
-            | (models.Contact.email.ilike(search))
+            models.Contact.user_id == user_id,
+            (
+                models.Contact.first_name.ilike(search)
+                | models.Contact.last_name.ilike(search)
+                | models.Contact.email.ilike(search)
+            ),
         )
         .all()
     )
@@ -66,11 +84,15 @@ def get_birthday_for_year(birthday: date, year: int) -> date:
     return birthday.replace(year=year)
 
 
-def get_upcoming_birthdays(db: Session):
+def get_upcoming_birthdays(db: Session, user_id: int):
     today = date.today()
     end_date = today + timedelta(days=7)
 
-    contacts = db.query(models.Contact).all()
+    contacts = (
+        db.query(models.Contact)
+        .filter(models.Contact.user_id == user_id)
+        .all()
+    )
 
     upcoming = []
 
