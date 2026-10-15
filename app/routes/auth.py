@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordRequestForm
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.repository_users import create_user, get_user_by_email, update_token
-from app.schemas import TokenModel, UserCreate, UserResponse
+from app.schemas import TokenModel, UserCreate, UserLogin,UserResponse
 from app.services.auth import auth_service
 
 
@@ -32,13 +32,13 @@ def signup(body: UserCreate, db: Session=Depends(get_db)):
 
 @router.post("/login", response_model=TokenModel)
 async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    body: UserLogin,
     db: Session = Depends(get_db),
 ):
-    user = get_user_by_email(form_data.username, db)
+    user = get_user_by_email(body.email, db)
 
     if user is None or not auth_service.verify_password(
-        form_data.password,
+        body.password,
         user.password,
     ):
         raise HTTPException(
